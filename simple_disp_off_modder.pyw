@@ -6,11 +6,13 @@
 # actually modified to  work to a reasonable end by myself (rotemlv)
 
 from windo import change_display_off_timer as original_disp_off_timer
-
+CURRENT_VAL = 15
 
 # corrected fun
 def change_display_off_timer(icon, time):
+    global CURRENT_VAL
     original_disp_off_timer(time)
+    CURRENT_VAL = time
 
 
 import os
@@ -214,22 +216,40 @@ class SysTrayIcon(object):
         win32gui.PostMessage(self.hwnd, win32con.WM_NULL, 0, 0)
 
     def create_menu(self, menu, menu_options):
+        print("create menu called")
         for option_text, option_icon, option_action, option_id in menu_options[::-1]:
+            if option_id in self.menu_actions_by_id \
+                    and len((tmp:=self.menu_actions_by_id[option_id])) > 1 \
+                    and tmp[0] == change_display_off_timer:
+                fState = win32con.MFS_CHECKED if tmp[1][0] == CURRENT_VAL else win32con.MFS_UNCHECKED
+                # print(f"Got here at {tmp=}, {CURRENT_VAL=}")
+                # if fState == win32con.MFS_CHECKED:
+                #     print(f"GO HERE! {tmp=}")
+            else:
+                fState=None
+
             if option_icon:
                 option_icon = self.prep_menu_icon(option_icon)
 
             if option_id in self.menu_actions_by_id:
-                item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text,
+                item, extras = win32gui_struct.PackMENUITEMINFO(fType=win32con.MFT_RADIOCHECK,
+                                                                text=option_text,
                                                                 hbmpItem=option_icon,
-                                                                wID=option_id)
+                                                                wID=option_id,
+                                                                fState=fState
+                                                                )
                 win32gui.InsertMenuItem(menu, 0, 1, item)
             else:
                 submenu = win32gui.CreatePopupMenu()
                 self.create_menu(submenu, option_action)
                 item, extras = win32gui_struct.PackMENUITEMINFO(text=option_text,
                                                                 hbmpItem=option_icon,
-                                                                hSubMenu=submenu)
+                                                                hSubMenu=submenu,
+                                                                # fType=win32con.MF_BYPOSITION|win32con.MF_CHECKED
+                                                                # fState=win32con.MF_STRING | win32con.MF_POPUP
+                                                                )
                 win32gui.InsertMenuItem(menu, 0, 1, item)
+
 
     def prep_menu_icon(self, icon):
         # First load the icon.
